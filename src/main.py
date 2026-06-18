@@ -22,4 +22,4 @@ def predict(request: PredictionRequest):
     return model.predict(request.text)
 
 
-#testing 5 minutes
+# Testing 5 minutes
