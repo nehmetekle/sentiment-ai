@@ -20,3 +20,6 @@ def health():
 def predict(request: PredictionRequest):
     """Analyse le sentiment du texte fourni et retourne un label + score."""
     return model.predict(request.text)
+
+
+#testing 5 minutes
