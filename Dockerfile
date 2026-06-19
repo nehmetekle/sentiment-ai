@@ -7,8 +7,9 @@ WORKDIR /app
 # Cette couche sera mise en cache tant que requirements.txt ne change pas
 COPY requirements.txt .
 
-# Étape 2 : installer les dépendances ( couche mise en cache )
-RUN pip install --no-cache-dir -r requirements.txt
+# Étape 2 : mettre à jour les outils Python puis installer les dépendances
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Étape 3 : copier le code source ( invalidé à chaque modification du code )
 COPY src/ ./src/
