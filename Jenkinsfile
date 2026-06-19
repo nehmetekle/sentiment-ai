@@ -156,6 +156,25 @@ pipeline {
                 }
             }
         }
+
+        stage('Deploy Staging') {
+            when {
+                anyOf {
+                    branch 'main'
+                    expression {
+                        env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main'
+                    }
+                }
+            }
+            steps {
+                echo "Deploying ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} to staging..."
+                sh '''
+                    docker compose -f docker-compose.yml -p staging down >/dev/null 2>&1 || true
+                    docker compose -f docker-compose.yml -p staging up -d
+                    echo "Staging available on http://localhost:8001"
+                '''
+            }
+        }
     }
 
     post {
