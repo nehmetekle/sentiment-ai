@@ -18,6 +18,7 @@ pipeline {
                     ).trim()
                 }
                 echo "Branch: ${env.BRANCH_NAME}"
+                echo "Git branch: ${env.GIT_BRANCH}"
                 echo "Commit: ${env.GIT_COMMIT}"
                 sh 'git log --oneline -5'
             }
@@ -57,7 +58,12 @@ pipeline {
 
         stage('Push') {
             when {
-                branch 'main'
+                anyOf {
+                    branch 'main'
+                    expression {
+                        env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main'
+                    }
+                }
             }
             steps {
                 withCredentials([usernamePassword(
