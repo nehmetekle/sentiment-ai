@@ -58,6 +58,7 @@ pipeline {
                     set -e
 
                     docker cp test-runner:/tmp/coverage.xml ./coverage.xml >/dev/null 2>&1 || true
+                    sed -i "s#/app/src#${WORKSPACE}/src#g" coverage.xml
                     docker rm -f test-runner >/dev/null 2>&1 || true
 
                     exit \$TEST_EXIT_CODE
