@@ -36,6 +36,16 @@ pipeline {
             }
         }
 
+        stage('IaC Validate') {
+            steps {
+                dir('infra') {
+                    sh 'terraform init -backend=false -input=false'
+                    sh 'terraform fmt -check'
+                    sh 'terraform validate'
+                }
+            }
+        }
+
         stage('Build & Test') {
             steps {
                 sh """
@@ -157,6 +167,40 @@ pipeline {
             }
         }
 
+        stage('IaC Apply') {
+            when {
+                anyOf {
+                    branch 'main'
+                    expression {
+                        env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main'
+                    }
+                }
+            }
+            steps {
+                dir('infra') {
+                    sh '''
+                        terraform init -input=false
+
+                        if docker network inspect cicd-network >/dev/null 2>&1 && \
+                           ! terraform state show docker_network.cicd >/dev/null 2>&1; then
+                            NETWORK_ID=$(docker network inspect cicd-network --format '{{.Id}}')
+                            terraform import docker_network.cicd "$NETWORK_ID"
+                        fi
+
+                        if docker container inspect sentiment-staging >/dev/null 2>&1 && \
+                           ! terraform state show docker_container.sentiment_staging >/dev/null 2>&1; then
+                            CONTAINER_ID=$(docker container inspect sentiment-staging --format '{{.Id}}')
+                            terraform import docker_container.sentiment_staging "$CONTAINER_ID"
+                        fi
+                    '''
+                    sh """
+                        terraform apply -auto-approve \
+                            -var='image_tag=${IMAGE_TAG}'
+                    """
+                }
+            }
+        }
+
         stage('Deploy Staging') {
             when {
                 anyOf {
@@ -167,20 +211,13 @@ pipeline {
                 }
             }
             steps {
-                echo "Deploying ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} to staging..."
-                sh '''
-                    docker compose -f docker-compose.yml -p staging down >/dev/null 2>&1 || true
-                    docker compose -f docker-compose.yml -p staging up -d
-                    echo "Staging available on http://localhost:8001"
-                '''
+                echo "Checking Terraform staging deployment ${IMAGE_TAG}..."
+                sh 'curl -f http://localhost:8001/health'
             }
         }
     }
 
     post {
-        always {
-            sh 'docker compose down -v >/dev/null 2>&1 || true'
-        }
         success {
             echo "Pipeline succeeded! Image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
         }
