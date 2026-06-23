@@ -3,6 +3,11 @@ FROM python:3.11-slim
 # Définir le répertoire de travail dans le conteneur
 WORKDIR /app
 
+# curl est utilisé par le healthcheck Docker déclaré dans Terraform
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
 # Étape 1 : copier UNIQUEMENT le fichier de dépendances
 # Cette couche sera mise en cache tant que requirements.txt ne change pas
 COPY requirements.txt .

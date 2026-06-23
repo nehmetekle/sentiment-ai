@@ -212,7 +212,18 @@ pipeline {
             }
             steps {
                 echo "Checking Terraform staging deployment ${IMAGE_TAG}..."
-                sh 'curl -f http://localhost:8001/health'
+                sh '''
+                    for attempt in $(seq 1 12); do
+                        if curl --max-time 3 -fsS http://sentiment-staging:8000/health; then
+                            exit 0
+                        fi
+                        echo "Waiting for staging API (${attempt}/12)..."
+                        sleep 5
+                    done
+
+                    docker logs sentiment-staging
+                    exit 1
+                '''
             }
         }
     }
