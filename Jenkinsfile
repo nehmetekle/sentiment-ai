@@ -226,6 +226,48 @@ pipeline {
                 '''
             }
         }
+
+        stage('Smoke Test') {
+            when {
+                anyOf {
+                    branch 'main'
+                    expression {
+                        env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main'
+                    }
+                }
+            }
+            steps {
+                sh '''
+                    echo "Waiting for services..."
+                    sleep 10
+
+                    curl -fsS http://sentiment-staging:8000/health
+                    echo "/health OK"
+
+                    curl -fsS http://sentiment-staging:8000/metrics \
+                        | grep -q sentiment_predictions_total
+                    echo "/metrics OK"
+
+                    sleep 20
+
+                    curl -fsS --get \
+                        --data-urlencode 'query=up{job="sentiment-ai"}' \
+                        http://prometheus:9090/api/v1/query \
+                        | grep -Eq '"value":\\[[^]]*,"1"\\]'
+                    echo "Prometheus scrape: UP"
+
+                    curl -fsS http://grafana:3000/api/health
+                    echo "Grafana OK"
+                '''
+            }
+            post {
+                failure {
+                    sh 'docker logs prometheus || true'
+                    sh 'docker logs sentiment-staging || true'
+                    echo 'Smoke Test failed -- see logs above.'
+                }
+            }
+        }
     }
 
     post {
