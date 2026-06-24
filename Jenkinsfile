@@ -192,6 +192,18 @@ pipeline {
                             CONTAINER_ID=$(docker container inspect sentiment-staging --format '{{.Id}}')
                             terraform import docker_container.sentiment_staging "$CONTAINER_ID"
                         fi
+
+                        if docker container inspect prometheus >/dev/null 2>&1 && \
+                           ! terraform state show docker_container.prometheus >/dev/null 2>&1; then
+                            CONTAINER_ID=$(docker container inspect prometheus --format '{{.Id}}')
+                            terraform import docker_container.prometheus "$CONTAINER_ID"
+                        fi
+
+                        if docker container inspect grafana >/dev/null 2>&1 && \
+                           ! terraform state show docker_container.grafana >/dev/null 2>&1; then
+                            CONTAINER_ID=$(docker container inspect grafana --format '{{.Id}}')
+                            terraform import docker_container.grafana "$CONTAINER_ID"
+                        fi
                     '''
                     sh """
                         terraform apply -auto-approve \
