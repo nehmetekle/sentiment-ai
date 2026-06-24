@@ -1,6 +1,11 @@
 resource "docker_image" "prometheus" {
-  name         = "prom/prometheus:latest"
+  name         = "sentiment-prometheus:latest"
   keep_locally = true
+
+  build {
+    context    = abspath("${path.module}/../monitoring")
+    dockerfile = "Dockerfile.prometheus"
+  }
 }
 
 resource "docker_container" "prometheus" {
@@ -15,18 +20,6 @@ resource "docker_container" "prometheus" {
   ports {
     internal = 9090
     external = 9090
-  }
-
-  volumes {
-    host_path      = abspath("${path.module}/../monitoring/prometheus.yml")
-    container_path = "/etc/prometheus/prometheus.yml"
-    read_only      = true
-  }
-
-  volumes {
-    host_path      = abspath("${path.module}/../monitoring/alerts.yml")
-    container_path = "/etc/prometheus/alerts.yml"
-    read_only      = true
   }
 
   command = [

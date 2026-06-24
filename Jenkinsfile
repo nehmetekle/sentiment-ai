@@ -181,29 +181,38 @@ pipeline {
                     sh '''
                         terraform init -input=false
 
+                        import_container() {
+                            RESOURCE="$1"
+                            NAME="$2"
+
+                            if ! docker container inspect "$NAME" >/dev/null 2>&1; then
+                                return
+                            fi
+
+                            CONTAINER_ID=$(docker container inspect "$NAME" --format '{{.Id}}')
+                            STATE_ID=$(terraform state show -no-color "$RESOURCE" 2>/dev/null | \
+                                awk -F'"' '/^[[:space:]]*id[[:space:]]*=/{print $2; exit}')
+
+                            if [ -n "$STATE_ID" ] && [ "$STATE_ID" != "$CONTAINER_ID" ]; then
+                                echo "Removing stale Terraform state for $RESOURCE"
+                                terraform state rm "$RESOURCE"
+                                STATE_ID=""
+                            fi
+
+                            if [ -z "$STATE_ID" ]; then
+                                terraform import "$RESOURCE" "$CONTAINER_ID"
+                            fi
+                        }
+
                         if docker network inspect cicd-network >/dev/null 2>&1 && \
                            ! terraform state show docker_network.cicd >/dev/null 2>&1; then
                             NETWORK_ID=$(docker network inspect cicd-network --format '{{.Id}}')
                             terraform import docker_network.cicd "$NETWORK_ID"
                         fi
 
-                        if docker container inspect sentiment-staging >/dev/null 2>&1 && \
-                           ! terraform state show docker_container.sentiment_staging >/dev/null 2>&1; then
-                            CONTAINER_ID=$(docker container inspect sentiment-staging --format '{{.Id}}')
-                            terraform import docker_container.sentiment_staging "$CONTAINER_ID"
-                        fi
-
-                        if docker container inspect prometheus >/dev/null 2>&1 && \
-                           ! terraform state show docker_container.prometheus >/dev/null 2>&1; then
-                            CONTAINER_ID=$(docker container inspect prometheus --format '{{.Id}}')
-                            terraform import docker_container.prometheus "$CONTAINER_ID"
-                        fi
-
-                        if docker container inspect grafana >/dev/null 2>&1 && \
-                           ! terraform state show docker_container.grafana >/dev/null 2>&1; then
-                            CONTAINER_ID=$(docker container inspect grafana --format '{{.Id}}')
-                            terraform import docker_container.grafana "$CONTAINER_ID"
-                        fi
+                        import_container docker_container.sentiment_staging sentiment-staging
+                        import_container docker_container.prometheus prometheus
+                        import_container docker_container.grafana grafana
                     '''
                     sh """
                         terraform apply -auto-approve \
